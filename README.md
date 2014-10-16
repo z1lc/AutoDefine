@@ -1,4 +1,4 @@
-AutoDefine
+AutoDefine Anki Add-On
 ==========
 
 An add-on to Anki that auto-defines words, optionally adding pronunciation and images. Hit up [ankisrs.net](http://ankisrs.net/) if you're unfamiliar with Anki and spaced repetition systems.
