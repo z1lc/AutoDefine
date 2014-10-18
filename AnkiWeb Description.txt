@@ -1,0 +1,15 @@
+https://ankiweb.net/shared/info/2136497008
+
+AutoDefine - Automatically define vocabulary words with pronunciations and image
+
+vocab vocabulary definitions sound audio wav automatic auto
+
+AutoDefine can greatly simplify finding definitions and pronunciations for words imported into Anki. Just install AutoDefine, press Ctrl+E, and see all pronunciations and definitions appear within the card instantly!
+
+The intended audience for this add-on is users that are not satisfied with decks that give definitions that are poor or too general to be exact. Ideally, you use decks simply as possible sources for vocab words, and then use AutoDefine to replace the given definitions with your own (by using Ctrl+E). This way, you get more familiar with the word and have access to Merriam-Webster's Collegiate&#174; Dictionary definition, which is considered to be among the best available. If you aren't as concerned with getting the best definition and simply want many definitions at once, I recommend <a href="http://www.easydefine.com/">EasyDefine</a> (it scales well to hundreds of words). 
+
+<b>NOTE:</b> This add-on uses Merriam-Webster's Collegiate&#174; Dictionary with Audio API to get definitions and pronunciations. This requires you sign up for a Merriam-Webster account and use your own individual API access key. Go to the <a href="http://www.dictionaryapi.com/">Merriam-Webster Dictionary API website</a>, sign up for an account, and request access to the Collegiate Dictionary. Then, replace <code>YOUR_KEY_HERE</code> with the key you receive.
+
+Created by <a href="http://www.robertsanek.com">Robert Sanek</a>. Licensed under GPLv2. See https://github.com/z1lc/AutoDefine for the source. If you find any bugs, please <a href="https://github.com/z1lc/AutoDefine/issues">file an issue on GitHub</a>.
+
+<img src="https://raw.githubusercontent.com/z1lc/AutoDefine/master/AutoDefineAddon/mw-logo-light-background-125x125.png">
