@@ -1,8 +1,8 @@
 # Copyright (c) 2014 Robert Sanek        robertsanek.com       rsanek@gmail.com
 # https://github.com/z1lc/AutoDefine                      Licensed under GPL v2
-# 
+#
 # Dictionary API XML documentation: http://goo.gl/LuD83A
-# 
+#
 # http://www.dictionaryapi.com/api/v1/references/collegiate/xml/WORD?key=KEY
 # Rough XML Structure:
 # <entry_list>
@@ -21,10 +21,10 @@
 #     ... (same structure as above)
 #   </entry>
 # </entry_list>
-# 
+#
 # ElementTree documentation: http://goo.gl/EcKhQv
 
-import urllib
+import urllib2
 import re
 from xml.etree import ElementTree as ET
 import collections
@@ -54,7 +54,7 @@ def get_definition(editor):
     word = allFields[0]
 
     url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + word + "?key=" + MERRIAM_WEBSTER_API_KEY
-    etree = ET.parse(urllib.urlopen(url))
+    etree = ET.fromstring(urllib2.urlopen(url).read())
     allEntries = etree.findall("entry")
 
     definitionArray = []
@@ -77,7 +77,7 @@ def get_definition(editor):
                         midURL = rawWav[:1]
                     wavURL = "http://media.merriam-webster.com/soundc11/" + midURL + "/" + rawWav
                     allSounds.append(editor.urlToFile(wavURL).strip())
-        
+
         # we want to make this a non-duplicate set, so that we only get unique sound files.
         allSounds = OrderedSet(allSounds)
         for soundLocalFilename in reversed(allSounds):
@@ -183,7 +183,7 @@ addHook("setupEditorButtons", mySetupButtons)
 class OrderedSet(collections.MutableSet):
 
     def __init__(self, iterable=None):
-        self.end = end = [] 
+        self.end = end = []
         end += [None, end, end]         # sentinel node for doubly linked list
         self.map = {}                   # key --> [key, prev, next]
         if iterable is not None:
@@ -202,7 +202,7 @@ class OrderedSet(collections.MutableSet):
             curr[2] = end[1] = self.map[key] = [key, curr, end]
 
     def discard(self, key):
-        if key in self.map:        
+        if key in self.map:
             key, prev, next = self.map.pop(key)
             prev[2] = next
             next[1] = prev
