@@ -164,6 +164,8 @@ def get_definition(editor):
     if (OPEN_IMAGES_IN_BROWSER):
         webbrowser.open("https://www.google.com/search?q= "+ word + "&safe=off&tbm=isch&tbs=isz:lt,islt:xga", 0, False)
 
+    editor.web.eval("focusField(%d);" % 0)
+
 # via https://github.com/sarajaksa/anki-addons/blob/master/edit-buttons.py#L79
 def saveChanges(editor, text, id, overwrite = False):
     if (overwrite):
