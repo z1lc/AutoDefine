@@ -55,3 +55,7 @@ docs/_build/
 target/
 
 credentials.py
+AutoDefineAddon.zip
+*.iml
+.idea/*
+venv/
