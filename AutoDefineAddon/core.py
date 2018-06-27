@@ -25,6 +25,7 @@
 # ElementTree documentation: http://goo.gl/EcKhQv
 
 import urllib2
+from urllib2 import URLError
 import re
 from xml.etree import ElementTree as ET
 import collections
@@ -44,18 +45,17 @@ def get_definition(editor):
         showInfo(message)
         return
 
-    # Random Anki loading
     editor.loadNote()
-    editor.web.setFocus()
-    editor.web.eval("focusField(0);")
-    editor.web.eval("caretToEnd();")
-    allFields = editor.note.fields
-
-    word = allFields[0]
+    word = cleanhtml(editor.note.fields[0]).strip()
+    saveChanges(editor, word, 0, True)
 
     url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + word + "?key=" + MERRIAM_WEBSTER_API_KEY
-    etree = ET.fromstring(urllib2.urlopen(url).read())
-    allEntries = etree.findall("entry")
+    allEntries = []
+    try:
+        etree = ET.fromstring(urllib2.urlopen(url).read())
+        allEntries = etree.findall("entry")
+    except URLError as e:
+        showInfo("Didn't find definition for word '%s'\nUsing URL '%s'" % (word, url))
 
     definitionArray = []
 
@@ -81,104 +81,113 @@ def get_definition(editor):
         # we want to make this a non-duplicate set, so that we only get unique sound files.
         allSounds = OrderedSet(allSounds)
         for soundLocalFilename in reversed(allSounds):
-            allFields[PRONUNCIATION_FIELD] += '[sound:' + soundLocalFilename + ']'
-
-    # Extract the type of word this is
-    for entry in allEntries:
-        if entry.attrib["id"][:len(word)+1] == word + "[" or entry.attrib["id"] == word:
-            thisDef = entry.find("def")
-            fl = entry.find("fl").text
-            if fl == "verb":
-                fl = "v."
-            elif fl == "noun":
-                fl = "n."
-            elif fl == "adverb":
-                fl = "adv."
-            elif fl == "adjective":
-                fl = "adj."
-
-            thisDef.tail = "<b>" + fl + "</b>" # save the functional label (noun/verb/etc) in the tail
-
-            # the <ssl> tag will contain the word 'obsolete' if the term is not in use anymore. However, for some reason, the tag
-            # precedes the <dt> that it is associated with instead of being a child. We need to associate it here so that later
-            # we can either remove or keep it regardless.
-            previousWasSSL = False
-            for child in thisDef:
-                # this is a kind of poor way of going about things, but the ElementTree API doesn't seem to offer an alternative.
-                if child.text == "obsolete" and child.tag == "ssl":
-                    previousWasSSL = True
-                if previousWasSSL and child.tag == "dt":
-                    child.tail = "obsolete"
-                    previousWasSSL = False
-
-
-            definitionArray.append(thisDef)
-
-    toReturn = ""
-    for definition in definitionArray:
-        lastFunctionalLabel = ""
-        toPrint = ""
-        for dtTag in definition.findall("dt"):
-
-            if dtTag.tail == "obsolete":
-                dtTag.tail = "" #take away the tail word so that when printing it does not show up.
-                if IGNORE_ARCHAIC:
-                    continue
-
-
-            # We don't really care for 'verbal illustrations' or 'usage notes', even though they are occasionally useful.
-            for usageNote in dtTag.findall("un"):
-                dtTag.remove(usageNote)
-            for verbalIllustration in dtTag.findall("vi"):
-                dtTag.remove(verbalIllustration)
-
-            # Directional cross reference doesn't make sense for us
-            for dxTag in dtTag.findall("dx"):
-                for dxtTag in dxTag.findall("dxt"):
-                    for dxnTag in dxtTag.findall("dxn"):
-                        dxtTag.remove(dxnTag)
-
-            toPrint = ET.tostring(dtTag, "", "xml").strip() # extract raw XML from <dt>...</dt>
-            toPrint = toPrint.replace("<sx>", "; ") # attempt to remove 'synonymous cross reference tag' and replace with semicolon
-            toPrint = toPrint.replace("<dx>", "; ") # attempt to remove 'Directional cross reference tag' and replace with semicolon
-            toPrint = re.sub('<[^>]*>', '', toPrint) # remove all other XML tags
-            toPrint = re.sub(':', '', toPrint) # remove all colons, since they are usually useless and have been replaced with semicolons above
-            toPrint = toPrint.replace(" ; ", "; ").strip() # erase space between semicolon and previous word, if exists, and strip any extraneous whitespace
-            toPrint += "<br>\n"
-
-            # add verb/noun/adjective
-            if (lastFunctionalLabel != definition.tail):
-                toPrint = definition.tail + " " + toPrint
-                # but don't add an extra carriage return for the first definition
-                #if (definition != definitionArray[0]):
-                #    toPrint = "<br>\n" + toPrint
-            lastFunctionalLabel = definition.tail
-            toReturn += toPrint
-
-    # final cleanup of <sx> tag bs
-    toReturn = toReturn.replace(".</b> ; ", ".</b> ") #<sx> as first definition after "n. " or "v. "
-    toReturn = toReturn.replace("\n; ", "\n") #<sx> as first definition after newline
+            saveChanges(editor, '[sound:' + soundLocalFilename + ']', PRONUNCIATION_FIELD)
 
     if (DEFINITION_FIELD > -1):
-        allFields[DEFINITION_FIELD] = toReturn
-    editor.web.eval("setFields(%s, %d);" % (allFields, 0))
+        # Extract the type of word this is
+        for entry in allEntries:
+            if entry.attrib["id"][:len(word)+1] == word + "[" or entry.attrib["id"] == word:
+                thisDef = entry.find("def")
+                fl = entry.find("fl").text
+                if fl == "verb":
+                    fl = "v."
+                elif fl == "noun":
+                    fl = "n."
+                elif fl == "adverb":
+                    fl = "adv."
+                elif fl == "adjective":
+                    fl = "adj."
 
-    # not sure exactly how saving works, but focusing different fields seems to help.
-    editor.loadNote()
-    editor.web.eval("focusField(0);")
-    editor.web.eval("focusField(1);")
-    editor.web.eval("focusField(0);")
+                thisDef.tail = "<b>" + fl + "</b>" # save the functional label (noun/verb/etc) in the tail
+
+                # the <ssl> tag will contain the word 'obsolete' if the term is not in use anymore. However, for some reason, the tag
+                # precedes the <dt> that it is associated with instead of being a child. We need to associate it here so that later
+                # we can either remove or keep it regardless.
+                previousWasSSL = False
+                for child in thisDef:
+                    # this is a kind of poor way of going about things, but the ElementTree API doesn't seem to offer an alternative.
+                    if child.text == "obsolete" and child.tag == "ssl":
+                        previousWasSSL = True
+                    if previousWasSSL and child.tag == "dt":
+                        child.tail = "obsolete"
+                        previousWasSSL = False
+
+
+                definitionArray.append(thisDef)
+
+        toReturn = ""
+        for definition in definitionArray:
+            lastFunctionalLabel = ""
+            toPrint = ""
+            for dtTag in definition.findall("dt"):
+
+                if dtTag.tail == "obsolete":
+                    dtTag.tail = "" #take away the tail word so that when printing it does not show up.
+                    if IGNORE_ARCHAIC:
+                        continue
+
+
+                # We don't really care for 'verbal illustrations' or 'usage notes', even though they are occasionally useful.
+                for usageNote in dtTag.findall("un"):
+                    dtTag.remove(usageNote)
+                for verbalIllustration in dtTag.findall("vi"):
+                    dtTag.remove(verbalIllustration)
+
+                # Directional cross reference doesn't make sense for us
+                for dxTag in dtTag.findall("dx"):
+                    for dxtTag in dxTag.findall("dxt"):
+                        for dxnTag in dxtTag.findall("dxn"):
+                            dxtTag.remove(dxnTag)
+
+                toPrint = ET.tostring(dtTag, "", "xml").strip() # extract raw XML from <dt>...</dt>
+                toPrint = toPrint.replace("<sx>", "; ") # attempt to remove 'synonymous cross reference tag' and replace with semicolon
+                toPrint = toPrint.replace("<dx>", "; ") # attempt to remove 'Directional cross reference tag' and replace with semicolon
+                toPrint = re.sub('<[^>]*>', '', toPrint) # remove all other XML tags
+                toPrint = re.sub(':', '', toPrint) # remove all colons, since they are usually useless and have been replaced with semicolons above
+                toPrint = toPrint.replace(" ; ", "; ").strip() # erase space between semicolon and previous word, if exists, and strip any extraneous whitespace
+                toPrint += "<br>\n"
+
+                # add verb/noun/adjective
+                if (lastFunctionalLabel != definition.tail):
+                    toPrint = definition.tail + " " + toPrint
+                    # but don't add an extra carriage return for the first definition
+                    #if (definition != definitionArray[0]):
+                    #    toPrint = "<br>\n" + toPrint
+                lastFunctionalLabel = definition.tail
+                toReturn += toPrint
+
+        # final cleanup of <sx> tag bs
+        toReturn = toReturn.replace(".</b> ; ", ".</b> ") #<sx> as first definition after "n. " or "v. "
+        toReturn = toReturn.replace("\n; ", "\n") #<sx> as first definition after newline
+        saveChanges(editor, toReturn, DEFINITION_FIELD)
+
     if (OPEN_IMAGES_IN_BROWSER):
         webbrowser.open("https://www.google.com/search?q= "+ word + "&safe=off&tbm=isch&tbs=isz:lt,islt:xga", 0, False)
 
+# via https://github.com/sarajaksa/anki-addons/blob/master/edit-buttons.py#L79
+def saveChanges(editor, text, id, overwrite = False):
+    if (overwrite):
+        editor.note.fields[id] = text
+    else:
+        editor.note.fields[id] += text
+    editor.loadNote()
+    editor.web.setFocus()
+    editor.saveNow()
+    editor.web.setFocus()
+    editor.web.eval("focusField(%d);" % id)
 
 def mySetupButtons(editor):
     editor._addButton("AutoDefine", lambda ed=editor: get_definition(ed),
-                    text="AD", tip="AutoDefine Word (Ctrl+E)", key="Ctrl+e")
+                      text="AD", tip="AutoDefine Word (Ctrl+E)", key="Ctrl+e")
 
 Editor.get_definition = get_definition
 addHook("setupEditorButtons", mySetupButtons)
 
+# via https://stackoverflow.com/a/12982689
+def cleanhtml(raw_html):
+    cleanr = re.compile('<.*?>')
+    cleantext = re.sub(cleanr, '', raw_html)
+    return cleantext
 
 # via http://code.activestate.com/recipes/576694/
 class OrderedSet(collections.MutableSet):
