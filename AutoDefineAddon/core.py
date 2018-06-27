@@ -88,6 +88,8 @@ def get_definition(editor):
         for entry in allEntries:
             if entry.attrib["id"][:len(word)+1] == word + "[" or entry.attrib["id"] == word:
                 thisDef = entry.find("def")
+                if entry.find("fl") == None:
+                    continue
                 fl = entry.find("fl").text
                 if fl == "verb":
                     fl = "v."
