@@ -11,4 +11,5 @@ An add-on to Anki that auto-defines words, optionally adding pronunciation and i
 Licensed under GPLv2.
 
 ##Release Information
+
 To release to [AnkiWeb](https://ankiweb.net):  package AutoDefine.py and AutoDefineAddon folder into zip file; upload via [this link](https://ankiweb.net/shared/upload?id=2136497008).
