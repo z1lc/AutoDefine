@@ -1,0 +1,11 @@
+{
+  "1 required": {
+    "MERRIAM_WEBSTER_API_KEY": "YOUR_KEY_HERE"
+  },
+  "2 extra": {
+    "DEFINITION_FIELD": 1,
+    "IGNORE_ARCHAIC": true,
+    "OPEN_IMAGES_IN_BROWSER": false,
+    "PRONUNCIATION_FIELD": 0
+  }
+}
