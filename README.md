@@ -1,6 +1,6 @@
 AutoDefine Anki Add-On
 ==========
-<img align="right" src="AutoDefineAddon/images/icon512.png">
+<img align="right" src="AutoDefineAddon/images/icon512.png" width="256" height="256">
 
 An add-on to Anki that auto-defines words, optionally adding pronunciation and images. Visit [ankisrs.net](http://ankisrs.net/) if you're unfamiliar with Anki and spaced repetition systems.
 
