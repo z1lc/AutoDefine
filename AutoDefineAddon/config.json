@@ -3,6 +3,7 @@
     "MERRIAM_WEBSTER_API_KEY": "YOUR_KEY_HERE"
   },
   "2 extra": {
+    "DEDICATED_INDIVIDUAL_BUTTONS": false,
     "DEFINITION_FIELD": 1,
     "IGNORE_ARCHAIC": true,
     "OPEN_IMAGES_IN_BROWSER": false,

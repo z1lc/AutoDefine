@@ -36,6 +36,9 @@ OPEN_IMAGES_IN_BROWSER = False
 # Index of field to insert pronunciations into (use -1 to turn off)
 PRONUNCIATION_FIELD = 0
 
+# Index of field to insert pronunciations into (use -1 to turn off)
+DEDICATED_INDIVIDUAL_BUTTONS = False
+
 
 # Dictionary API XML documentation: http://goo.gl/LuD83A
 #
@@ -60,7 +63,9 @@ PRONUNCIATION_FIELD = 0
 #
 # ElementTree documentation: http://goo.gl/EcKhQv
 
-def get_definition(editor):
+def get_definition(editor,
+                   force_pronounce=False,
+                   force_definition=False):
     # ideally, users wouldn't have to do this, but the API limit is just 1000 calls/day.
     # That could easily happen with just a few users.
     if MERRIAM_WEBSTER_API_KEY == "YOUR_KEY_HERE":
@@ -88,7 +93,7 @@ def get_definition(editor):
 
     definition_array = []
 
-    if PRONUNCIATION_FIELD > -1:
+    if PRONUNCIATION_FIELD > -1 or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
         all_sounds = []
         for entry in all_entries:
@@ -109,10 +114,10 @@ def get_definition(editor):
 
         # we want to make this a non-duplicate set, so that we only get unique sound files.
         all_sounds = OrderedSet(all_sounds)
-        for soundLocalFilename in reversed(all_sounds):
-            save_changes(editor, '[sound:' + soundLocalFilename + ']', PRONUNCIATION_FIELD)
+        for sound_local_filename in reversed(all_sounds):
+            save_changes(editor, '[sound:' + sound_local_filename + ']', PRONUNCIATION_FIELD)
 
-    if DEFINITION_FIELD > -1:
+    if DEFINITION_FIELD > -1 or force_definition:
         # Extract the type of word this is
         for entry in all_entries:
             if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
@@ -219,15 +224,34 @@ def clean_html(raw_html):
 
 
 def setup_buttons(buttons, editor):
-    b = editor.addButton(icon=os.path.join(os.path.dirname(__file__), "images", "icon16.png"),
-                         cmd="AD",
-                         func=lambda s=editor: get_definition(editor),
-                         tip="AutoDefine Word (Ctrl+E)",
-                         toggleable=False,
-                         label="",
-                         keys="ctrl+e",
-                         disables=False)
-    buttons.append(b)
+    both_button = editor.addButton(icon=os.path.join(os.path.dirname(__file__), "images", "icon16.png"),
+                                   cmd="AD",
+                                   func=lambda s=editor: get_definition(editor),
+                                   tip="AutoDefine Word (Ctrl+E)",
+                                   toggleable=False,
+                                   label="",
+                                   keys="ctrl+e",
+                                   disables=False)
+    define_button = editor.addButton(icon="",
+                                     cmd="D",
+                                     func=lambda s=editor: get_definition(editor, force_definition=True),
+                                     tip="AutoDefine: Definition only",
+                                     toggleable=False,
+                                     label="",
+                                     keys="ctrl+e",
+                                     disables=False)
+    pronounce_button = editor.addButton(icon="",
+                                        cmd="P",
+                                        func=lambda s=editor: get_definition(editor, force_pronounce=True),
+                                        tip="AutoDefine: Pronunciation only",
+                                        toggleable=False,
+                                        label="",
+                                        keys="ctrl+e",
+                                        disables=False)
+    buttons.append(both_button)
+    if DEDICATED_INDIVIDUAL_BUTTONS:
+        buttons.append(define_button)
+        buttons.append(pronounce_button)
     return buttons
 
 
@@ -240,3 +264,4 @@ if getattr(mw.addonManager, "getConfig", None):
     DEFINITION_FIELD = config['2 extra']['DEFINITION_FIELD']
     IGNORE_ARCHAIC = config['2 extra']['IGNORE_ARCHAIC']
     OPEN_IMAGES_IN_BROWSER = config['2 extra']['OPEN_IMAGES_IN_BROWSER']
+    DEDICATED_INDIVIDUAL_BUTTONS = config['2 extra']['DEDICATED_INDIVIDUAL_BUTTONS']
