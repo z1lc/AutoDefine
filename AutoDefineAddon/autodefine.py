@@ -6,15 +6,19 @@
 
 import os
 import re
+import platform
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+import urllib.parse
 from urllib.error import URLError
 from xml.etree import ElementTree as ET
 
 from anki.hooks import addHook
 from aqt import mw
 from aqt.utils import showInfo
+from anki import version
 
 from .libs import webbrowser
 from .libs.orderedset import OrderedSet
@@ -83,17 +87,24 @@ def get_definition(editor,
     word = clean_html(editor.note.fields[0]).strip()
     save_changes(editor, word, 0, True)
 
-    url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + word + "?key=" + MERRIAM_WEBSTER_API_KEY
+    url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + urllib.parse.quote_plus(word) + \
+          "?key=" + MERRIAM_WEBSTER_API_KEY
     all_entries = []
     try:
         etree = ET.fromstring(urllib.request.urlopen(url).read())
         all_entries = etree.findall("entry")
     except URLError:
         showInfo("Didn't find definition for word '%s'\nUsing URL '%s'" % (word, url))
+    except ET.ParseError:
+        showInfo("Couldn't parse API response for word '%s'. "
+                 "Please submit an issue to the AutoDefine GitHub (a web browser window will open)." % word)
+        webbrowser.open("https://github.com/z1lc/AutoDefine/issues/new?title=Parse error for word '%s'"
+                        "&body=Anki Version: %s%%0APlatform: %s %s%%0AURL: %s%%0AStack Trace: %s"
+                        % (word, version, platform.system(), platform.release(), url, traceback.format_exc()), 0, False)
 
     definition_array = []
 
-    if PRONUNCIATION_FIELD > -1 or force_pronounce:
+    if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
         all_sounds = []
         for entry in all_entries:
@@ -117,7 +128,7 @@ def get_definition(editor,
         for sound_local_filename in reversed(all_sounds):
             save_changes(editor, '[sound:' + sound_local_filename + ']', PRONUNCIATION_FIELD)
 
-    if DEFINITION_FIELD > -1 or force_definition:
+    if (not force_pronounce and DEFINITION_FIELD > -1) or force_definition:
         # Extract the type of word this is
         for entry in all_entries:
             if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
@@ -235,18 +246,18 @@ def setup_buttons(buttons, editor):
     define_button = editor.addButton(icon="",
                                      cmd="D",
                                      func=lambda s=editor: get_definition(editor, force_definition=True),
-                                     tip="AutoDefine: Definition only",
+                                     tip="AutoDefine: Definition only (Ctrl+Q)",
                                      toggleable=False,
                                      label="",
-                                     keys="ctrl+e",
+                                     keys="ctrl+q",
                                      disables=False)
     pronounce_button = editor.addButton(icon="",
                                         cmd="P",
                                         func=lambda s=editor: get_definition(editor, force_pronounce=True),
-                                        tip="AutoDefine: Pronunciation only",
+                                        tip="AutoDefine: Pronunciation only (Ctrl+W)",
                                         toggleable=False,
                                         label="",
-                                        keys="ctrl+e",
+                                        keys="ctrl+w",
                                         disables=False)
     buttons.append(both_button)
     if DEDICATED_INDIVIDUAL_BUTTONS:
