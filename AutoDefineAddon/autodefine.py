@@ -1,4 +1,4 @@
-# AutoDefine Anki Add-on v.20180918
+# AutoDefine Anki Add-on v.20180921
 # Auto-defines words, optionally adding pronunciation and images.
 #
 # Copyright (c) 2014 - 2018 Robert Sanek    robertsanek.com    rsanek@gmail.com
