@@ -238,26 +238,29 @@ def setup_buttons(buttons, editor):
     both_button = editor.addButton(icon=os.path.join(os.path.dirname(__file__), "images", "icon16.png"),
                                    cmd="AD",
                                    func=lambda s=editor: get_definition(editor),
-                                   tip="AutoDefine Word (Ctrl+E)",
+                                   tip="AutoDefine Word (%s)" %
+                                       ("no shortcut" if PRIMARY_SHORTCUT == "" else PRIMARY_SHORTCUT),
                                    toggleable=False,
                                    label="",
-                                   keys="ctrl+e",
+                                   keys=PRIMARY_SHORTCUT,
                                    disables=False)
     define_button = editor.addButton(icon="",
                                      cmd="D",
                                      func=lambda s=editor: get_definition(editor, force_definition=True),
-                                     tip="AutoDefine: Definition only (Ctrl+Q)",
+                                     tip="AutoDefine: Definition only (%s)" %
+                                         ("no shortcut" if DEFINE_ONLY_SHORTCUT == "" else DEFINE_ONLY_SHORTCUT),
                                      toggleable=False,
                                      label="",
-                                     keys="ctrl+q",
+                                     keys=DEFINE_ONLY_SHORTCUT,
                                      disables=False)
     pronounce_button = editor.addButton(icon="",
                                         cmd="P",
                                         func=lambda s=editor: get_definition(editor, force_pronounce=True),
-                                        tip="AutoDefine: Pronunciation only (Ctrl+W)",
+                                        tip="AutoDefine: Pronunciation only (%s)" %
+                                            ("no shortcut" if PRONOUNCE_ONLY_SHORTCUT == "" else PRONOUNCE_ONLY_SHORTCUT),
                                         toggleable=False,
                                         label="",
-                                        keys="ctrl+w",
+                                        keys=PRONOUNCE_ONLY_SHORTCUT,
                                         disables=False)
     buttons.append(both_button)
     if DEDICATED_INDIVIDUAL_BUTTONS:
@@ -276,3 +279,6 @@ if getattr(mw.addonManager, "getConfig", None):
     IGNORE_ARCHAIC = config['2 extra']['IGNORE_ARCHAIC']
     OPEN_IMAGES_IN_BROWSER = config['2 extra']['OPEN_IMAGES_IN_BROWSER']
     DEDICATED_INDIVIDUAL_BUTTONS = config['2 extra']['DEDICATED_INDIVIDUAL_BUTTONS']
+    PRIMARY_SHORTCUT = config['3 shortcuts']['1 PRIMARY_SHORTCUT']
+    DEFINE_ONLY_SHORTCUT = config['3 shortcuts']['2 DEFINE_ONLY_SHORTCUT']
+    PRONOUNCE_ONLY_SHORTCUT = config['3 shortcuts']['3 PRONOUNCE_ONLY_SHORTCUT']

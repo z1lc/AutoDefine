@@ -8,5 +8,10 @@
     "IGNORE_ARCHAIC": true,
     "OPEN_IMAGES_IN_BROWSER": false,
     "PRONUNCIATION_FIELD": 0
+  },
+  "3 shortcuts": {
+    "1 PRIMARY_SHORTCUT": "ctrl+alt+e",
+    "2 DEFINE_ONLY_SHORTCUT": "",
+    "3 PRONOUNCE_ONLY_SHORTCUT": ""
   }
 }
