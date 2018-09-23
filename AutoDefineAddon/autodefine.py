@@ -5,20 +5,20 @@
 # https://github.com/z1lc/AutoDefine                      Licensed under GPL v2
 
 import os
-import re
 import platform
+import re
 import traceback
 import urllib.error
 import urllib.parse
-import urllib.request
 import urllib.parse
+import urllib.request
 from urllib.error import URLError
 from xml.etree import ElementTree as ET
 
+from anki import version
 from anki.hooks import addHook
 from aqt import mw
-from aqt.utils import showInfo
-from anki import version
+from aqt.utils import showInfo, tooltip
 
 from .libs import webbrowser
 from .libs.orderedset import OrderedSet
@@ -70,6 +70,12 @@ DEDICATED_INDIVIDUAL_BUTTONS = False
 def get_definition(editor,
                    force_pronounce=False,
                    force_definition=False):
+    editor.saveNow(lambda: _get_definition(editor, force_pronounce, force_definition))
+
+
+def _get_definition(editor,
+                    force_pronounce=False,
+                    force_definition=False):
     # ideally, users wouldn't have to do this, but the API limit is just 1000 calls/day.
     # That could easily happen with just a few users.
     if MERRIAM_WEBSTER_API_KEY == "YOUR_KEY_HERE":
@@ -83,9 +89,7 @@ def get_definition(editor,
         webbrowser.open("https://www.dictionaryapi.com/", 0, False)
         return
 
-    editor.loadNote()
     word = clean_html(editor.note.fields[0]).strip()
-    save_changes(editor, word, 0, True)
 
     url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + urllib.parse.quote_plus(word) + \
           "?key=" + MERRIAM_WEBSTER_API_KEY
@@ -102,6 +106,10 @@ def get_definition(editor,
                         "&body=Anki Version: %s%%0APlatform: %s %s%%0AURL: %s%%0AStack Trace: %s"
                         % (word, version, platform.system(), platform.release(), url, traceback.format_exc()), 0, False)
 
+    if not all_entries:
+        tooltip("No entry found in Merriam-Webster dictionary for word '%s'." % word)
+        editor.web.eval("focusField(%d);" % 0)
+        return
     definition_array = []
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
@@ -126,7 +134,7 @@ def get_definition(editor,
         # we want to make this a non-duplicate set, so that we only get unique sound files.
         all_sounds = OrderedSet(all_sounds)
         for sound_local_filename in reversed(all_sounds):
-            save_changes(editor, '[sound:' + sound_local_filename + ']', PRONUNCIATION_FIELD)
+            insert_into_field(editor, '[sound:' + sound_local_filename + ']', PRONUNCIATION_FIELD)
 
     if (not force_pronounce and DEFINITION_FIELD > -1) or force_definition:
         # Extract the type of word this is
@@ -208,7 +216,7 @@ def get_definition(editor,
         # final cleanup of <sx> tag bs
         to_return = to_return.replace(".</b> ; ", ".</b> ")  # <sx> as first definition after "n. " or "v. "
         to_return = to_return.replace("\n; ", "\n")  # <sx> as first definition after newline
-        save_changes(editor, to_return, DEFINITION_FIELD)
+        insert_into_field(editor, to_return, DEFINITION_FIELD)
 
     if OPEN_IMAGES_IN_BROWSER:
         webbrowser.open("https://www.google.com/search?q= " + word + "&safe=off&tbm=isch&tbs=isz:lt,islt:xga", 0, False)
@@ -216,17 +224,17 @@ def get_definition(editor,
     editor.web.eval("focusField(%d);" % 0)
 
 
-# via https://github.com/sarajaksa/anki-addons/blob/master/edit-buttons.py#L79
-def save_changes(editor, text, field_id, overwrite=False):
+def insert_into_field(editor, text, field_id, overwrite=False):
+    if len(editor.note.fields) < field_id:
+        tooltip("AutoDefine: Tried to insert '%s' into user-configured field number %d (0-indexed), but note type only "
+                "has %d fields. Use a different note type with %d or more fields, or change the index in the "
+                "Add-on configuration." % (text, field_id, len(editor.note.fields), field_id + 1), period=10000)
+        return
     if overwrite:
         editor.note.fields[field_id] = text
     else:
         editor.note.fields[field_id] += text
     editor.loadNote()
-    editor.web.setFocus()
-    editor.saveNow(lambda: None)
-    editor.web.setFocus()
-    editor.web.eval("focusField(%d);" % field_id)
 
 
 # via https://stackoverflow.com/a/12982689
@@ -256,8 +264,9 @@ def setup_buttons(buttons, editor):
     pronounce_button = editor.addButton(icon="",
                                         cmd="P",
                                         func=lambda s=editor: get_definition(editor, force_pronounce=True),
-                                        tip="AutoDefine: Pronunciation only (%s)" %
-                                            ("no shortcut" if PRONOUNCE_ONLY_SHORTCUT == "" else PRONOUNCE_ONLY_SHORTCUT),
+                                        tip="AutoDefine: Pronunciation only (%s)" % ("no shortcut"
+                                                                                     if PRONOUNCE_ONLY_SHORTCUT == ""
+                                                                                     else PRONOUNCE_ONLY_SHORTCUT),
                                         toggleable=False,
                                         label="",
                                         keys=PRONOUNCE_ONLY_SHORTCUT,
