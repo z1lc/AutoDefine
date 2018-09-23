@@ -10,7 +10,6 @@ import re
 import traceback
 import urllib.error
 import urllib.parse
-import urllib.parse
 import urllib.request
 from urllib.error import URLError
 from xml.etree import ElementTree as ET
@@ -42,6 +41,12 @@ PRONUNCIATION_FIELD = 0
 
 # Index of field to insert pronunciations into (use -1 to turn off)
 DEDICATED_INDIVIDUAL_BUTTONS = False
+
+PRIMARY_SHORTCUT = "ctrl+alt+e"
+
+DEFINE_ONLY_SHORTCUT = ""
+
+PRONOUNCE_ONLY_SHORTCUT = ""
 
 
 # Dictionary API XML documentation: http://goo.gl/LuD83A
@@ -282,12 +287,30 @@ addHook("setupEditorButtons", setup_buttons)
 
 if getattr(mw.addonManager, "getConfig", None):
     config = mw.addonManager.getConfig(__name__)
-    MERRIAM_WEBSTER_API_KEY = config['1 required']['MERRIAM_WEBSTER_API_KEY']
-    PRONUNCIATION_FIELD = config['2 extra']['PRONUNCIATION_FIELD']
-    DEFINITION_FIELD = config['2 extra']['DEFINITION_FIELD']
-    IGNORE_ARCHAIC = config['2 extra']['IGNORE_ARCHAIC']
-    OPEN_IMAGES_IN_BROWSER = config['2 extra']['OPEN_IMAGES_IN_BROWSER']
-    DEDICATED_INDIVIDUAL_BUTTONS = config['2 extra']['DEDICATED_INDIVIDUAL_BUTTONS']
-    PRIMARY_SHORTCUT = config['3 shortcuts']['1 PRIMARY_SHORTCUT']
-    DEFINE_ONLY_SHORTCUT = config['3 shortcuts']['2 DEFINE_ONLY_SHORTCUT']
-    PRONOUNCE_ONLY_SHORTCUT = config['3 shortcuts']['3 PRONOUNCE_ONLY_SHORTCUT']
+    if '1 required' in config and 'MERRIAM_WEBSTER_API_KEY' in config['1 required']:
+        MERRIAM_WEBSTER_API_KEY = config['1 required']['MERRIAM_WEBSTER_API_KEY']
+    else:
+        showInfo("AutoDefine: The schema of the configuration has changed in a backwards-incompatible way.\n"
+                 "Please remove and re-download the AutoDefine Add-on.")
+
+    if '2 extra' in config:
+        extra = config['2 extra']
+        if 'PRONUNCIATION_FIELD' in extra:
+            PRONUNCIATION_FIELD = extra['PRONUNCIATION_FIELD']
+        if 'DEFINITION_FIELD' in extra:
+            DEFINITION_FIELD = extra['DEFINITION_FIELD']
+        if 'IGNORE_ARCHAIC' in extra:
+            IGNORE_ARCHAIC = extra['IGNORE_ARCHAIC']
+        if 'OPEN_IMAGES_IN_BROWSER' in extra:
+            OPEN_IMAGES_IN_BROWSER = extra['OPEN_IMAGES_IN_BROWSER']
+        if 'DEDICATED_INDIVIDUAL_BUTTONS' in extra:
+            DEDICATED_INDIVIDUAL_BUTTONS = extra['DEDICATED_INDIVIDUAL_BUTTONS']
+
+    if '3 shortcuts' in config:
+        shortcuts = config['3 shortcuts']
+        if '1 PRIMARY_SHORTCUT' in shortcuts:
+            PRIMARY_SHORTCUT = shortcuts['1 PRIMARY_SHORTCUT']
+        if '2 DEFINE_ONLY_SHORTCUT' in shortcuts:
+            DEFINE_ONLY_SHORTCUT = shortcuts['2 DEFINE_ONLY_SHORTCUT']
+        if '3 PRONOUNCE_ONLY_SHORTCUT' in shortcuts:
+            PRONOUNCE_ONLY_SHORTCUT = shortcuts['3 PRONOUNCE_ONLY_SHORTCUT']
