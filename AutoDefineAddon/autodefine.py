@@ -1,4 +1,4 @@
-# AutoDefine Anki Add-on v.20180921
+# AutoDefine Anki Add-on v.20180925
 # Auto-defines words, optionally adding pronunciation and images.
 #
 # Copyright (c) 2014 - 2018 Robert Sanek    robertsanek.com    rsanek@gmail.com
@@ -111,69 +111,76 @@ def _get_definition(editor,
                         "&body=Anki Version: %s%%0APlatform: %s %s%%0AURL: %s%%0AStack Trace: %s"
                         % (word, version, platform.system(), platform.release(), url, traceback.format_exc()), 0, False)
 
-    if not all_entries:
-        tooltip("No entry found in Merriam-Webster dictionary for word '%s'." % word)
+    valid_entries = []
+    for entry in all_entries:
+        if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
+            valid_entries.append(entry)
+    if not valid_entries:
+        maybe_entries = []
+        for entry in all_entries:
+            maybe_entries.append(entry.attrib["id"])
+        potential = " Potential matches: " + ", ".join(maybe_entries)
+        tooltip("No entry found in Merriam-Webster dictionary for word '%s'.%s" %
+                (word, potential if maybe_entries else ""))
         editor.web.eval("focusField(%d);" % 0)
         return
-    definition_array = []
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
         all_sounds = []
-        for entry in all_entries:
-            if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
-                for wav in entry.findall("sound/wav"):
-                    raw_wav = wav.text
-                    # API-specific URL conversions
-                    if raw_wav[:3] == "bix":
-                        mid_url = "bix"
-                    elif raw_wav[:2] == "gg":
-                        mid_url = "gg"
-                    elif raw_wav[:1].isdigit():
-                        mid_url = "number"
-                    else:
-                        mid_url = raw_wav[:1]
-                    wav_url = "http://media.merriam-webster.com/soundc11/" + mid_url + "/" + raw_wav
-                    all_sounds.append(editor.urlToFile(wav_url).strip())
+        for entry in valid_entries:
+            for wav in entry.findall("sound/wav"):
+                raw_wav = wav.text
+                # API-specific URL conversions
+                if raw_wav[:3] == "bix":
+                    mid_url = "bix"
+                elif raw_wav[:2] == "gg":
+                    mid_url = "gg"
+                elif raw_wav[:1].isdigit():
+                    mid_url = "number"
+                else:
+                    mid_url = raw_wav[:1]
+                wav_url = "http://media.merriam-webster.com/soundc11/" + mid_url + "/" + raw_wav
+                all_sounds.append(editor.urlToFile(wav_url).strip())
 
         # we want to make this a non-duplicate set, so that we only get unique sound files.
         all_sounds = OrderedSet(all_sounds)
         for sound_local_filename in reversed(all_sounds):
             insert_into_field(editor, '[sound:' + sound_local_filename + ']', PRONUNCIATION_FIELD)
 
+    definition_array = []
     if (not force_pronounce and DEFINITION_FIELD > -1) or force_definition:
         # Extract the type of word this is
-        for entry in all_entries:
-            if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
-                this_def = entry.find("def")
-                if entry.find("fl") is None:
-                    continue
-                fl = entry.find("fl").text
-                if fl == "verb":
-                    fl = "v."
-                elif fl == "noun":
-                    fl = "n."
-                elif fl == "adverb":
-                    fl = "adv."
-                elif fl == "adjective":
-                    fl = "adj."
+        for entry in valid_entries:
+            this_def = entry.find("def")
+            if entry.find("fl") is None:
+                continue
+            fl = entry.find("fl").text
+            if fl == "verb":
+                fl = "v."
+            elif fl == "noun":
+                fl = "n."
+            elif fl == "adverb":
+                fl = "adv."
+            elif fl == "adjective":
+                fl = "adj."
 
-                this_def.tail = "<b>" + fl + "</b>"  # save the functional label (noun/verb/etc) in the tail
+            this_def.tail = "<b>" + fl + "</b>"  # save the functional label (noun/verb/etc) in the tail
 
-                # the <ssl> tag will contain the word 'obsolete' if the term is not in use anymore. However, for some
-                # reason, the tag precedes the <dt> that it is associated with instead of being a child. We need to
-                # associate it here so that later we can either remove or keep it regardless.
-                previous_was_ssl = False
-                for child in this_def:
-                    # this is a kind of poor way of going about things, but the ElementTree API
-                    # doesn't seem to offer an alternative.
-                    if child.text == "obsolete" and child.tag == "ssl":
-                        previous_was_ssl = True
-                    if previous_was_ssl and child.tag == "dt":
-                        child.tail = "obsolete"
-                        previous_was_ssl = False
+            # the <ssl> tag will contain the word 'obsolete' if the term is not in use anymore. However, for some
+            # reason, the tag precedes the <dt> that it is associated with instead of being a child. We need to
+            # associate it here so that later we can either remove or keep it regardless.
+            previous_was_ssl = False
+            for child in this_def:
+                # this is a kind of poor way of going about things, but the ElementTree API
+                # doesn't seem to offer an alternative.
+                if child.text == "obsolete" and child.tag == "ssl":
+                    previous_was_ssl = True
+                if previous_was_ssl and child.tag == "dt":
+                    child.tail = "obsolete"
+                    previous_was_ssl = False
 
-                definition_array.append(this_def)
+            definition_array.append(this_def)
 
         to_return = ""
         for definition in definition_array:
