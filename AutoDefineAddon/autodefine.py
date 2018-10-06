@@ -1,4 +1,4 @@
-# AutoDefine Anki Add-on v.20180925
+# AutoDefine Anki Add-on v.20181005
 # Auto-defines words, optionally adding pronunciation and images.
 #
 # Copyright (c) 2014 - 2018 Robert Sanek    robertsanek.com    rsanek@gmail.com
@@ -100,7 +100,13 @@ def _get_definition(editor,
           "?key=" + MERRIAM_WEBSTER_API_KEY
     all_entries = []
     try:
-        etree = ET.fromstring(urllib.request.urlopen(url).read())
+        returned = urllib.request.urlopen(url).read()
+        if "Invalid API key" in returned.decode("UTF-8"):
+            showInfo("API key '%s' is invalid. Please double-check you are using the key labeled \"Key (Dictionary)\". "
+                     "A web browser with the web page that lists your keys will open." % MERRIAM_WEBSTER_API_KEY)
+            webbrowser.open("https://www.dictionaryapi.com/account/my-keys.htm")
+            return
+        etree = ET.fromstring(returned)
         all_entries = etree.findall("entry")
     except URLError:
         showInfo("Didn't find definition for word '%s'\nUsing URL '%s'" % (word, url))
