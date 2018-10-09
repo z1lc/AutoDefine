@@ -11,6 +11,7 @@ import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+from http.client import RemoteDisconnected
 from urllib.error import URLError
 from xml.etree import ElementTree as ET
 
@@ -100,7 +101,9 @@ def _get_definition(editor,
           "?key=" + MERRIAM_WEBSTER_API_KEY
     all_entries = []
     try:
-        returned = urllib.request.urlopen(url).read()
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:62.0) '
+                                                                 'Gecko/20100101 Firefox/62.0'})
+        returned = urllib.request.urlopen(req).read()
         if "Invalid API key" in returned.decode("UTF-8"):
             showInfo("API key '%s' is invalid. Please double-check you are using the key labeled \"Key (Dictionary)\". "
                      "A web browser with the web page that lists your keys will open." % MERRIAM_WEBSTER_API_KEY)
@@ -110,7 +113,7 @@ def _get_definition(editor,
         all_entries = etree.findall("entry")
     except URLError:
         showInfo("Didn't find definition for word '%s'\nUsing URL '%s'" % (word, url))
-    except ET.ParseError:
+    except (ET.ParseError, RemoteDisconnected) as e:
         showInfo("Couldn't parse API response for word '%s'. "
                  "Please submit an issue to the AutoDefine GitHub (a web browser window will open)." % word)
         webbrowser.open("https://github.com/z1lc/AutoDefine/issues/new?title=Parse error for word '%s'"
