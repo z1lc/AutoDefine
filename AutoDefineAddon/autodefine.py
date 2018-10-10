@@ -1,4 +1,4 @@
-# AutoDefine Anki Add-on v.20181005
+# AutoDefine Anki Add-on v.20181009
 # Auto-defines words, optionally adding pronunciation and images.
 #
 # Copyright (c) 2014 - 2018 Robert Sanek    robertsanek.com    rsanek@gmail.com
@@ -79,6 +79,14 @@ def get_definition(editor,
     editor.saveNow(lambda: _get_definition(editor, force_pronounce, force_definition))
 
 
+def extract_valid_entries(word, all_entries):
+    valid_entries = []
+    for entry in all_entries:
+        if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
+            valid_entries.append(entry)
+    return valid_entries
+
+
 def _get_definition(editor,
                     force_pronounce=False,
                     force_definition=False):
@@ -120,19 +128,18 @@ def _get_definition(editor,
                         "&body=Anki Version: %s%%0APlatform: %s %s%%0AURL: %s%%0AStack Trace: %s"
                         % (word, version, platform.system(), platform.release(), url, traceback.format_exc()), 0, False)
 
-    valid_entries = []
-    for entry in all_entries:
-        if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
-            valid_entries.append(entry)
+    valid_entries = extract_valid_entries(word, all_entries)
     if not valid_entries:
-        maybe_entries = []
-        for entry in all_entries:
-            maybe_entries.append(entry.attrib["id"])
-        potential = " Potential matches: " + ", ".join(maybe_entries)
-        tooltip("No entry found in Merriam-Webster dictionary for word '%s'.%s" %
-                (word, potential if maybe_entries else ""))
-        editor.web.eval("focusField(%d);" % 0)
-        return
+        valid_entries = extract_valid_entries(word.lower(), all_entries)
+        if not valid_entries:
+            maybe_entries = []
+            for entry in all_entries:
+                maybe_entries.append(entry.attrib["id"])
+            potential = " Potential matches: " + ", ".join(maybe_entries)
+            tooltip("No entry found in Merriam-Webster dictionary for word '%s'.%s" %
+                    (word, potential if maybe_entries else ""))
+            editor.web.eval("focusField(%d);" % 0)
+            return
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
