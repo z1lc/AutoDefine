@@ -1,4 +1,4 @@
-# AutoDefine Anki Add-on v.20181009
+# AutoDefine Anki Add-on v.20181020
 # Auto-defines words, optionally adding pronunciation and images.
 #
 # Copyright (c) 2014 - 2018 Robert Sanek    robertsanek.com    rsanek@gmail.com
@@ -34,8 +34,14 @@ DEFINITION_FIELD = 1
 # Ignore archaic/obsolete definitions?
 IGNORE_ARCHAIC = True
 
+# Get your unique API key by signing up at http://www.dictionaryapi.com/
+MERRIAM_WEBSTER_MEDICAL_API_KEY = "YOUR_KEY_HERE"
+
 # Open a browser tab with an image search for the same word?
 OPEN_IMAGES_IN_BROWSER = False
+
+# Which dictionary should AutoDefine prefer to get definitions from? Available options are COLLEGIATE and MEDICAL.
+PREFERRED_DICTIONARY = "COLLEGIATE"
 
 # Index of field to insert pronunciations into (use -1 to turn off)
 PRONUNCIATION_FIELD = 0
@@ -50,9 +56,12 @@ DEFINE_ONLY_SHORTCUT = ""
 PRONOUNCE_ONLY_SHORTCUT = ""
 
 
-# Dictionary API XML documentation: http://goo.gl/LuD83A
+# Collegiate Dictionary API XML documentation: http://goo.gl/LuD83A
+# Medical Dictionary API XML documentation: https://goo.gl/akvkbB
 #
 # http://www.dictionaryapi.com/api/v1/references/collegiate/xml/WORD?key=KEY
+# https://www.dictionaryapi.com/api/references/medical/v2/xml/WORD?key=KEY
+#
 # Rough XML Structure:
 # <entry_list>
 #   <entry id="word[1]">
@@ -61,22 +70,87 @@ PRONOUNCE_ONLY_SHORTCUT = ""
 #     </sound>
 #     <fl>verb</fl>
 #     <def>
-#       <dt>:actual definition</dt>
-#       <ssl>obsolete</ssl> (refers to next <dt>)
-#       <dt>:another definition</dt>
+#       <sensb>  (medical API only)
+#         <sens>  (medical API only)
+#           <dt>:actual definition</dt>
+#           <ssl>obsolete</ssl> (refers to next <dt>)
+#           <dt>:another definition</dt>
+#         </sens>  (medical API only)
+#       </sensb>  (medical API only)
 #     </def>
 #   </entry>
 #   <entry id="word[2]">
 #     ... (same structure as above)
 #   </entry>
 # </entry_list>
-#
-# ElementTree documentation: http://goo.gl/EcKhQv
 
 def get_definition(editor,
                    force_pronounce=False,
                    force_definition=False):
     editor.saveNow(lambda: _get_definition(editor, force_pronounce, force_definition))
+
+
+def validate_settings():
+    # ideally, users wouldn't have to force people to individually register, but the API limit is just 1000 calls/day.
+    # That could easily happen with just a few users.
+
+    if PREFERRED_DICTIONARY != "COLLEGIATE" and PREFERRED_DICTIONARY != "MEDICAL":
+        message = "Setting PREFERRED_DICTIONARY must be set to either COLLEGIATE or MEDICAL. Current setting: '%s'" \
+                  % PREFERRED_DICTIONARY
+        showInfo(message)
+        return
+
+    if PREFERRED_DICTIONARY == "MEDICAL" and MERRIAM_WEBSTER_MEDICAL_API_KEY == "YOUR_KEY_HERE":
+        message = "The preferred dictionary was set to MEDICAL, but no API key was provided.\n" \
+                  "Please register for one at www.dictionaryapi.com."
+        showInfo(message)
+        webbrowser.open("https://www.dictionaryapi.com/", 0, False)
+        return
+
+    if MERRIAM_WEBSTER_API_KEY == "YOUR_KEY_HERE":
+        message = "AutoDefine requires use of Merriam-Webster's Collegiate Dictionary with Audio API. " \
+                  "To get functionality working:\n" \
+                  "1. Go to www.dictionaryapi.com and sign up for an account, " \
+                  "requesting access to the Collegiate dictionary. You may also register for the Medical dictionary.\n" \
+                  "2. In Anki, go to Tools > Add-Ons. Select AutoDefine, click \"Config\" on the right-hand side " \
+                  "and replace YOUR_KEY_HERE with your unique API key.\n"
+        showInfo(message)
+        webbrowser.open("https://www.dictionaryapi.com/", 0, False)
+        return
+
+
+def get_preferred_valid_entries(editor, word):
+    collegiate_url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + \
+                     urllib.parse.quote_plus(word) + "?key=" + MERRIAM_WEBSTER_API_KEY
+    medical_url = "https://www.dictionaryapi.com/api/references/medical/v2/xml/" + \
+                  urllib.parse.quote_plus(word) + "?key=" + MERRIAM_WEBSTER_MEDICAL_API_KEY
+    all_collegiate_entries = get_entries_from_api(word, collegiate_url)
+    all_medical_entries = get_entries_from_api(word, medical_url)
+
+    if PREFERRED_DICTIONARY == "COLLEGIATE":
+        selected_entries = filter_entries_lower_and_suggested(editor, word, all_collegiate_entries)
+        if not selected_entries:
+            selected_entries = filter_entries_lower_and_suggested(editor, word, all_medical_entries)
+    else:
+        selected_entries = filter_entries_lower_and_suggested(editor, word, all_medical_entries)
+        if not selected_entries:
+            selected_entries = filter_entries_lower_and_suggested(editor, word, all_collegiate_entries)
+    return selected_entries
+
+
+def filter_entries_lower_and_suggested(editor, word, all_entries):
+    valid_entries = extract_valid_entries(word, all_entries)
+    if not valid_entries:
+        valid_entries = extract_valid_entries(word.lower(), all_entries)
+        if not valid_entries:
+            maybe_entries = []
+            for entry in all_entries:
+                maybe_entries.append(entry.attrib["id"])
+            potential = " Potential matches: " + ", ".join(maybe_entries)
+            tooltip("No entry found in Merriam-Webster %s dictionary for word '%s'.%s" %
+                    (PREFERRED_DICTIONARY.title(), word, potential if maybe_entries else ""))
+            editor.web.eval("focusField(%d);" % 0)
+    return valid_entries
 
 
 def extract_valid_entries(word, all_entries):
@@ -87,38 +161,20 @@ def extract_valid_entries(word, all_entries):
     return valid_entries
 
 
-def _get_definition(editor,
-                    force_pronounce=False,
-                    force_definition=False):
-    # ideally, users wouldn't have to do this, but the API limit is just 1000 calls/day.
-    # That could easily happen with just a few users.
-    if MERRIAM_WEBSTER_API_KEY == "YOUR_KEY_HERE":
-        message = "AutoDefine requires use of Merriam-Webster's Collegiate Dictionary with Audio API. " \
-                  "To get functionality working:\n" \
-                  "1. Go to www.dictionaryapi.com and sign up for an account, " \
-                  "requesting access to the Collegiate Dictionary.\n" \
-                  "2. In Anki, go to Tools > Add-Ons. Select AutoDefine, click \"Config\" on the right-hand side " \
-                  "and replace YOUR_KEY_HERE with your unique API key.\n"
-        showInfo(message)
-        webbrowser.open("https://www.dictionaryapi.com/", 0, False)
-        return
-
-    word = clean_html(editor.note.fields[0]).strip()
-
-    url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + urllib.parse.quote_plus(word) + \
-          "?key=" + MERRIAM_WEBSTER_API_KEY
-    all_entries = []
+def get_entries_from_api(word, url):
+    if "YOUR_KEY_HERE" in url:
+        return []
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:62.0) '
-                                                                 'Gecko/20100101 Firefox/62.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:62.0)'
+                                                                 ' Gecko/20100101 Firefox/62.0'})
         returned = urllib.request.urlopen(req).read()
         if "Invalid API key" in returned.decode("UTF-8"):
             showInfo("API key '%s' is invalid. Please double-check you are using the key labeled \"Key (Dictionary)\". "
-                     "A web browser with the web page that lists your keys will open." % MERRIAM_WEBSTER_API_KEY)
+                     "A web browser with the web page that lists your keys will open." % url.split("?key=")[1])
             webbrowser.open("https://www.dictionaryapi.com/account/my-keys.htm")
-            return
+            return []
         etree = ET.fromstring(returned)
-        all_entries = etree.findall("entry")
+        return etree.findall("entry")
     except URLError:
         showInfo("Didn't find definition for word '%s'\nUsing URL '%s'" % (word, url))
     except (ET.ParseError, RemoteDisconnected) as e:
@@ -128,18 +184,13 @@ def _get_definition(editor,
                         "&body=Anki Version: %s%%0APlatform: %s %s%%0AURL: %s%%0AStack Trace: %s"
                         % (word, version, platform.system(), platform.release(), url, traceback.format_exc()), 0, False)
 
-    valid_entries = extract_valid_entries(word, all_entries)
-    if not valid_entries:
-        valid_entries = extract_valid_entries(word.lower(), all_entries)
-        if not valid_entries:
-            maybe_entries = []
-            for entry in all_entries:
-                maybe_entries.append(entry.attrib["id"])
-            potential = " Potential matches: " + ", ".join(maybe_entries)
-            tooltip("No entry found in Merriam-Webster dictionary for word '%s'.%s" %
-                    (word, potential if maybe_entries else ""))
-            editor.web.eval("focusField(%d);" % 0)
-            return
+
+def _get_definition(editor,
+                    force_pronounce=False,
+                    force_definition=False):
+    validate_settings()
+    word = clean_html(editor.note.fields[0]).strip()
+    valid_entries = get_preferred_valid_entries(editor, word)
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
@@ -201,7 +252,7 @@ def _get_definition(editor,
         to_return = ""
         for definition in definition_array:
             last_functional_label = ""
-            for dtTag in definition.findall("dt"):
+            for dtTag in definition.findall("dt") + definition.findall("./sensb/sens/dt"):
 
                 if dtTag.tail == "obsolete":
                     dtTag.tail = ""  # take away the tail word so that when printing it does not show up.
@@ -318,16 +369,20 @@ if getattr(mw.addonManager, "getConfig", None):
 
     if '2 extra' in config:
         extra = config['2 extra']
-        if 'PRONUNCIATION_FIELD' in extra:
-            PRONUNCIATION_FIELD = extra['PRONUNCIATION_FIELD']
+        if 'DEDICATED_INDIVIDUAL_BUTTONS' in extra:
+            DEDICATED_INDIVIDUAL_BUTTONS = extra['DEDICATED_INDIVIDUAL_BUTTONS']
         if 'DEFINITION_FIELD' in extra:
             DEFINITION_FIELD = extra['DEFINITION_FIELD']
         if 'IGNORE_ARCHAIC' in extra:
             IGNORE_ARCHAIC = extra['IGNORE_ARCHAIC']
+        if 'MERRIAM_WEBSTER_MEDICAL_API_KEY' in extra:
+            MERRIAM_WEBSTER_MEDICAL_API_KEY = extra['MERRIAM_WEBSTER_MEDICAL_API_KEY']
         if 'OPEN_IMAGES_IN_BROWSER' in extra:
             OPEN_IMAGES_IN_BROWSER = extra['OPEN_IMAGES_IN_BROWSER']
-        if 'DEDICATED_INDIVIDUAL_BUTTONS' in extra:
-            DEDICATED_INDIVIDUAL_BUTTONS = extra['DEDICATED_INDIVIDUAL_BUTTONS']
+        if 'PREFERRED_DICTIONARY' in extra:
+            PREFERRED_DICTIONARY = extra['PREFERRED_DICTIONARY']
+        if 'PRONUNCIATION_FIELD' in extra:
+            PRONUNCIATION_FIELD = extra['PRONUNCIATION_FIELD']
 
     if '3 shortcuts' in config:
         shortcuts = config['3 shortcuts']
