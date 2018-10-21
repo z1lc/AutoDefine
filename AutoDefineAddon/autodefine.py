@@ -11,6 +11,7 @@ import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import namedtuple
 from http.client import RemoteDisconnected
 from urllib.error import URLError
 from xml.etree import ElementTree as ET
@@ -110,13 +111,16 @@ def validate_settings():
     if MERRIAM_WEBSTER_API_KEY == "YOUR_KEY_HERE":
         message = "AutoDefine requires use of Merriam-Webster's Collegiate Dictionary with Audio API. " \
                   "To get functionality working:\n" \
-                  "1. Go to www.dictionaryapi.com and sign up for an account, " \
-                  "requesting access to the Collegiate dictionary. You may also register for the Medical dictionary.\n" \
+                  "1. Go to www.dictionaryapi.com and sign up for an account, requesting access to " \
+                  "the Collegiate dictionary. You may also register for the Medical dictionary.\n" \
                   "2. In Anki, go to Tools > Add-Ons. Select AutoDefine, click \"Config\" on the right-hand side " \
                   "and replace YOUR_KEY_HERE with your unique API key.\n"
         showInfo(message)
         webbrowser.open("https://www.dictionaryapi.com/", 0, False)
         return
+
+
+ValidAndPotentialEntries = namedtuple('Entries', ['valid', 'potential'])
 
 
 def get_preferred_valid_entries(editor, word):
@@ -127,37 +131,50 @@ def get_preferred_valid_entries(editor, word):
     all_collegiate_entries = get_entries_from_api(word, collegiate_url)
     all_medical_entries = get_entries_from_api(word, medical_url)
 
+    potential_unified = set()
     if PREFERRED_DICTIONARY == "COLLEGIATE":
-        selected_entries = filter_entries_lower_and_suggested(editor, word, all_collegiate_entries)
-        if not selected_entries:
-            selected_entries = filter_entries_lower_and_suggested(editor, word, all_medical_entries)
+        entries = filter_entries_lower_and_potential(word, all_collegiate_entries)
+        potential_unified |= entries.potential
+        if not entries.valid:
+            entries = filter_entries_lower_and_potential(word, all_medical_entries)
+            potential_unified |= entries.potential
     else:
-        selected_entries = filter_entries_lower_and_suggested(editor, word, all_medical_entries)
-        if not selected_entries:
-            selected_entries = filter_entries_lower_and_suggested(editor, word, all_collegiate_entries)
-    return selected_entries
+        entries = filter_entries_lower_and_potential(word, all_medical_entries)
+        potential_unified |= entries.potential
+        if not entries.valid:
+            entries = filter_entries_lower_and_potential(word, all_collegiate_entries)
+            potential_unified |= entries.potential
+
+    if not entries.valid:
+        potential = " Potential matches: " + ", ".join(potential_unified)
+        tooltip("No entry found in Merriam-Webster dictionary for word '%s'.%s" %
+                (word, potential if entries.potential else ""))
+        editor.web.eval("focusField(%d);" % 0)
+    return entries.valid
 
 
-def filter_entries_lower_and_suggested(editor, word, all_entries):
+def filter_entries_lower_and_potential(word, all_entries):
     valid_entries = extract_valid_entries(word, all_entries)
+    maybe_entries = set()
     if not valid_entries:
-        valid_entries = extract_valid_entries(word.lower(), all_entries)
+        valid_entries = extract_valid_entries(word, all_entries, True)
         if not valid_entries:
-            maybe_entries = []
             for entry in all_entries:
-                maybe_entries.append(entry.attrib["id"])
-            potential = " Potential matches: " + ", ".join(maybe_entries)
-            tooltip("No entry found in Merriam-Webster %s dictionary for word '%s'.%s" %
-                    (PREFERRED_DICTIONARY.title(), word, potential if maybe_entries else ""))
-            editor.web.eval("focusField(%d);" % 0)
-    return valid_entries
+                maybe_entries.add(re.sub(r'\[\d+\]$', "", entry.attrib["id"]))
+    return ValidAndPotentialEntries(valid_entries, maybe_entries)
 
 
-def extract_valid_entries(word, all_entries):
+def extract_valid_entries(word, all_entries, lower=False):
     valid_entries = []
     for entry in all_entries:
-        if entry.attrib["id"][:len(word) + 1] == word + "[" or entry.attrib["id"] == word:
-            valid_entries.append(entry)
+        if lower:
+            if entry.attrib["id"][:len(word) + 1].lower() == word.lower() + "[" \
+                    or entry.attrib["id"].lower() == word.lower():
+                valid_entries.append(entry)
+        else:
+            if entry.attrib["id"][:len(word) + 1] == word + "[" \
+                    or entry.attrib["id"] == word:
+                valid_entries.append(entry)
     return valid_entries
 
 
@@ -176,8 +193,8 @@ def get_entries_from_api(word, url):
         etree = ET.fromstring(returned)
         return etree.findall("entry")
     except URLError:
-        showInfo("Didn't find definition for word '%s'\nUsing URL '%s'" % (word, url))
-    except (ET.ParseError, RemoteDisconnected) as e:
+        return []
+    except (ET.ParseError, RemoteDisconnected):
         showInfo("Couldn't parse API response for word '%s'. "
                  "Please submit an issue to the AutoDefine GitHub (a web browser window will open)." % word)
         webbrowser.open("https://github.com/z1lc/AutoDefine/issues/new?title=Parse error for word '%s'"
@@ -252,7 +269,11 @@ def _get_definition(editor,
         to_return = ""
         for definition in definition_array:
             last_functional_label = ""
-            for dtTag in definition.findall("dt") + definition.findall("./sensb/sens/dt"):
+            medical_api_def = definition.findall("./sensb/sens/dt")
+            # sometimes there's not a definition directly (dt) but just a usage example (un):
+            if len(medical_api_def) == 1 and not medical_api_def[0].text:
+                medical_api_def = definition.findall("./sensb/sens/dt/un")
+            for dtTag in (definition.findall("dt") + medical_api_def):
 
                 if dtTag.tail == "obsolete":
                     dtTag.tail = ""  # take away the tail word so that when printing it does not show up.
