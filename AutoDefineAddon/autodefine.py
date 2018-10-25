@@ -190,6 +190,8 @@ def get_entries_from_api(word, url):
                      "A web browser with the web page that lists your keys will open." % url.split("?key=")[1])
             webbrowser.open("https://www.dictionaryapi.com/account/my-keys.htm")
             return []
+        if "Results not found" in returned.decode("UTF-8"):
+            return []
         etree = ET.fromstring(returned)
         return etree.findall("entry")
     except URLError:
