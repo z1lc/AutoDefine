@@ -208,7 +208,10 @@ def _get_definition(editor,
                     force_pronounce=False,
                     force_definition=False):
     validate_settings()
-    word = clean_html(editor.note.fields[0]).strip()
+    word = editor.web.selectedText()
+    if word is None or word == "":
+        word = editor.note.fields[0]
+    word = clean_html(word).strip()
     valid_entries = get_preferred_valid_entries(editor, word)
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
@@ -231,8 +234,16 @@ def _get_definition(editor,
 
         # we want to make this a non-duplicate set, so that we only get unique sound files.
         all_sounds = OrderedSet(all_sounds)
+
+        final_pronounce_index = PRONUNCIATION_FIELD
+        fields = mw.col.models.fieldNames(editor.note.model())
+        for field in fields:
+            if '🔊' in field:
+                final_pronounce_index = fields.index(field)
+                break
+
         for sound_local_filename in reversed(all_sounds):
-            insert_into_field(editor, '[sound:' + sound_local_filename + ']', PRONUNCIATION_FIELD)
+            insert_into_field(editor, '[sound:' + sound_local_filename + ']', final_pronounce_index)
 
     definition_array = []
     if (not force_pronounce and DEFINITION_FIELD > -1) or force_definition:
