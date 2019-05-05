@@ -122,6 +122,12 @@ def validate_settings():
 ValidAndPotentialEntries = namedtuple('Entries', ['valid', 'potential'])
 
 
+def _focus_zero_field(editor):
+    # no idea why, but sometimes web seems to be unavailable
+    if editor.web:
+        editor.web.eval("focusField(%d);" % 0)
+
+
 def get_preferred_valid_entries(editor, word):
     collegiate_url = "http://www.dictionaryapi.com/api/v1/references/collegiate/xml/" + \
                      urllib.parse.quote_plus(word) + "?key=" + MERRIAM_WEBSTER_API_KEY
@@ -148,7 +154,7 @@ def get_preferred_valid_entries(editor, word):
         potential = " Potential matches: " + ", ".join(potential_unified)
         tooltip("No entry found in Merriam-Webster dictionary for word '%s'.%s" %
                 (word, potential if entries.potential else ""))
-        editor.web.eval("focusField(%d);" % 0)
+        _focus_zero_field(editor)
     return entries.valid
 
 
@@ -223,6 +229,9 @@ def _get_definition(editor,
                     force_definition=False):
     validate_settings()
     word = _get_word(editor)
+    if word == "":
+        tooltip("AutoDefine: No text found in note fields.")
+        return
     valid_entries = get_preferred_valid_entries(editor, word)
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
@@ -345,7 +354,7 @@ def _get_definition(editor,
     if OPEN_IMAGES_IN_BROWSER:
         webbrowser.open("https://www.google.com/search?q= " + word + "&safe=off&tbm=isch&tbs=isz:lt,islt:xga", 0, False)
 
-    editor.web.eval("focusField(%d);" % 0)
+    _focus_zero_field(editor)
 
 
 def insert_into_field(editor, text, field_id, overwrite=False):
