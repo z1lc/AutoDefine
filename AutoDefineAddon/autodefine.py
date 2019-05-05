@@ -92,8 +92,7 @@ def get_definition(editor,
 
 
 def validate_settings():
-    # ideally, users wouldn't have to force people to individually register, but the API limit is just 1000 calls/day.
-    # That could easily happen with just a few users.
+    # ideally, we wouldn't have to force people to individually register, but the API limit is just 1000 calls/day.
 
     if PREFERRED_DICTIONARY != "COLLEGIATE" and PREFERRED_DICTIONARY != "MEDICAL":
         message = "Setting PREFERRED_DICTIONARY must be set to either COLLEGIATE or MEDICAL. Current setting: '%s'" \
