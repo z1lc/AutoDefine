@@ -203,14 +203,26 @@ def get_entries_from_api(word, url):
                         % (word, version, platform.system(), platform.release(), url, traceback.format_exc()), 0, False)
 
 
+def _get_word(editor):
+    word = ""
+    maybe_web = editor.web
+    if maybe_web:
+        word = maybe_web.selectedText()
+
+    if word is None or word == "":
+        maybe_note = editor.note
+        if maybe_note:
+            word = maybe_note.fields[0]
+
+    word = clean_html(word).strip()
+    return word
+
+
 def _get_definition(editor,
                     force_pronounce=False,
                     force_definition=False):
     validate_settings()
-    word = editor.web.selectedText()
-    if word is None or word == "":
-        word = editor.note.fields[0]
-    word = clean_html(word).strip()
+    word = _get_word(editor)
     valid_entries = get_preferred_valid_entries(editor, word)
 
     if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
