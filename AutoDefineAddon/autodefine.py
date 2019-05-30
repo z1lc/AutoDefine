@@ -47,6 +47,9 @@ PREFERRED_DICTIONARY = "COLLEGIATE"
 # Index of field to insert pronunciations into (use -1 to turn off)
 PRONUNCIATION_FIELD = 0
 
+# Index of field to insert phonetic transcription into (use -1 to turn off)
+PHONETIC_TRANSCRIPTION_FIELD = 2
+
 # Index of field to insert pronunciations into (use -1 to turn off)
 DEDICATED_INDIVIDUAL_BUTTONS = False
 
@@ -56,6 +59,9 @@ DEFINE_ONLY_SHORTCUT = ""
 
 PRONOUNCE_ONLY_SHORTCUT = ""
 
+PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT = ""
+
+PART_OF_SPEECH_ABBREVIATION = {"verb": "v.", "noun": "n.", "adverb": "adv.", "adjective": "adj."}
 
 # Collegiate Dictionary API XML documentation: http://goo.gl/LuD83A
 # Medical Dictionary API XML documentation: https://goo.gl/akvkbB
@@ -85,10 +91,12 @@ PRONOUNCE_ONLY_SHORTCUT = ""
 #   </entry>
 # </entry_list>
 
+
 def get_definition(editor,
                    force_pronounce=False,
-                   force_definition=False):
-    editor.saveNow(lambda: _get_definition(editor, force_pronounce, force_definition))
+                   force_definition=False,
+                   force_phonetic_transcription=False):
+    editor.saveNow(lambda: _get_definition(editor, force_pronounce, force_definition, force_phonetic_transcription))
 
 
 def validate_settings():
@@ -226,7 +234,8 @@ def _get_word(editor):
 
 def _get_definition(editor,
                     force_pronounce=False,
-                    force_definition=False):
+                    force_definition=False,
+                    force_phonetic_transcription=False):
     validate_settings()
     word = _get_word(editor)
     if word == "":
@@ -234,7 +243,8 @@ def _get_definition(editor,
         return
     valid_entries = get_preferred_valid_entries(editor, word)
 
-    if (not force_definition and PRONUNCIATION_FIELD > -1) or force_pronounce:
+    # Add Vocal Pronunciation
+    if (not force_definition and not force_phonetic_transcription and PRONUNCIATION_FIELD > -1) or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
         all_sounds = []
         for entry in valid_entries:
@@ -265,22 +275,36 @@ def _get_definition(editor,
         for sound_local_filename in reversed(all_sounds):
             insert_into_field(editor, '[sound:' + sound_local_filename + ']', final_pronounce_index)
 
+    # Add Phonetic Transcription
+    if (not force_definition and not force_pronounce and PHONETIC_TRANSCRIPTION_FIELD > -1) or \
+            force_phonetic_transcription:
+
+        # extract phonetic transcriptions for each entry and label them by part of speech
+        all_transcriptions = []
+        for entry in valid_entries:
+            if entry.find("pr") is not None:
+                phonetic_transcription = entry.find("pr").text
+
+                part_of_speech = entry.find("fl").text
+                part_of_speech = _abbreviate_part_of_speech(part_of_speech)
+
+                row = "<b>" + part_of_speech + "</b> \\" + phonetic_transcription + "\\<br>"
+                all_transcriptions.append(row)
+
+        to_print = "".join(all_transcriptions)
+
+        insert_into_field(editor, to_print, PHONETIC_TRANSCRIPTION_FIELD)
+
+    # Add Definition
     definition_array = []
-    if (not force_pronounce and DEFINITION_FIELD > -1) or force_definition:
+    if (not force_pronounce and not force_phonetic_transcription and DEFINITION_FIELD > -1) or force_definition:
         # Extract the type of word this is
         for entry in valid_entries:
             this_def = entry.find("def")
             if entry.find("fl") is None:
                 continue
             fl = entry.find("fl").text
-            if fl == "verb":
-                fl = "v."
-            elif fl == "noun":
-                fl = "n."
-            elif fl == "adverb":
-                fl = "adv."
-            elif fl == "adjective":
-                fl = "adj."
+            fl = _abbreviate_part_of_speech(fl)
 
             this_def.tail = "<b>" + fl + "</b>"  # save the functional label (noun/verb/etc) in the tail
 
@@ -357,6 +381,13 @@ def _get_definition(editor,
     _focus_zero_field(editor)
 
 
+def _abbreviate_part_of_speech(part_of_speech):
+    if part_of_speech in PART_OF_SPEECH_ABBREVIATION.keys():
+        part_of_speech = PART_OF_SPEECH_ABBREVIATION[part_of_speech]
+
+    return part_of_speech
+
+
 def insert_into_field(editor, text, field_id, overwrite=False):
     if len(editor.note.fields) < field_id:
         tooltip("AutoDefine: Tried to insert '%s' into user-configured field number %d (0-indexed), but note type only "
@@ -404,10 +435,23 @@ def setup_buttons(buttons, editor):
                                         label="",
                                         keys=PRONOUNCE_ONLY_SHORTCUT,
                                         disables=False)
+    phonetic_transcription_button = editor.addButton(icon="",
+                                                     cmd="ə",
+                                                     func=lambda s=editor:
+                                                     get_definition(editor, force_phonetic_transcription=True),
+                                                     tip="AutoDefine: Phonetic Transcription only (%s)" %
+                                                         ("no shortcut"
+                                                          if PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT == ""
+                                                          else PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT),
+                                                     toggleable=False,
+                                                     label="",
+                                                     keys=PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT,
+                                                     disables=False)
     buttons.append(both_button)
     if DEDICATED_INDIVIDUAL_BUTTONS:
         buttons.append(define_button)
         buttons.append(pronounce_button)
+        buttons.append(phonetic_transcription_button)
     return buttons
 
 
@@ -437,6 +481,8 @@ if getattr(mw.addonManager, "getConfig", None):
             PREFERRED_DICTIONARY = extra['PREFERRED_DICTIONARY']
         if 'PRONUNCIATION_FIELD' in extra:
             PRONUNCIATION_FIELD = extra['PRONUNCIATION_FIELD']
+        if 'PHONETIC_TRANSCRIPTION_FIELD' in extra:
+            PHONETIC_TRANSCRIPTION_FIELD = extra['PHONETIC_TRANSCRIPTION_FIELD']
 
     if '3 shortcuts' in config:
         shortcuts = config['3 shortcuts']
@@ -446,3 +492,5 @@ if getattr(mw.addonManager, "getConfig", None):
             DEFINE_ONLY_SHORTCUT = shortcuts['2 DEFINE_ONLY_SHORTCUT']
         if '3 PRONOUNCE_ONLY_SHORTCUT' in shortcuts:
             PRONOUNCE_ONLY_SHORTCUT = shortcuts['3 PRONOUNCE_ONLY_SHORTCUT']
+        if '4 PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT' in shortcuts:
+            PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT = shortcuts['4 PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT']
