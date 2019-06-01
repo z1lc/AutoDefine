@@ -48,7 +48,7 @@ PREFERRED_DICTIONARY = "COLLEGIATE"
 PRONUNCIATION_FIELD = 0
 
 # Index of field to insert phonetic transcription into (use -1 to turn off)
-PHONETIC_TRANSCRIPTION_FIELD = 2
+PHONETIC_TRANSCRIPTION_FIELD = -1
 
 # Index of field to insert pronunciations into (use -1 to turn off)
 DEDICATED_INDIVIDUAL_BUTTONS = False
