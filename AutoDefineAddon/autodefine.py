@@ -284,8 +284,11 @@ def _get_definition(editor,
                 final_pronounce_index = fields.index(field)
                 break
 
+        to_print = ""
         for sound_local_filename in all_sounds:
-            insert_into_field(editor, '[sound:' + sound_local_filename + ']', final_pronounce_index)
+            to_print += f'[sound:{sound_local_filename}]'
+        to_print += "<br>"
+        insert_into_field(editor, to_print, final_pronounce_index)
 
     # Add Phonetic Transcription
     if (not force_definition and not force_pronounce and PHONETIC_TRANSCRIPTION_FIELD > -1) or \
