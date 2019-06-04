@@ -5,21 +5,21 @@
 # https://github.com/z1lc/AutoDefine                      Licensed under GPL v2
 
 import os
+from collections import namedtuple
+
 import platform
 import re
 import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections import namedtuple
-from http.client import RemoteDisconnected
-from urllib.error import URLError
-from xml.etree import ElementTree as ET
-
 from anki import version
 from anki.hooks import addHook
 from aqt import mw
 from aqt.utils import showInfo, tooltip
+from http.client import RemoteDisconnected
+from urllib.error import URLError
+from xml.etree import ElementTree as ET
 
 from .libs import webbrowser
 from .libs.orderedset import OrderedSet
@@ -63,6 +63,7 @@ PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT = ""
 
 PART_OF_SPEECH_ABBREVIATION = {"verb": "v.", "noun": "n.", "adverb": "adv.", "adjective": "adj."}
 
+
 # Collegiate Dictionary API XML documentation: http://goo.gl/LuD83A
 # Medical Dictionary API XML documentation: https://goo.gl/akvkbB
 #
@@ -97,6 +98,18 @@ def get_definition(editor,
                    force_definition=False,
                    force_phonetic_transcription=False):
     editor.saveNow(lambda: _get_definition(editor, force_pronounce, force_definition, force_phonetic_transcription))
+
+
+def get_definition_force_pronunciation(editor):
+    get_definition(editor, force_pronounce=True)
+
+
+def get_definition_force_definition(editor):
+    get_definition(editor, force_definition=True)
+
+
+def get_definition_force_phonetic_transcription(editor):
+    get_definition(editor, force_phonetic_transcription=True)
 
 
 def validate_settings():
@@ -409,7 +422,7 @@ def clean_html(raw_html):
 def setup_buttons(buttons, editor):
     both_button = editor.addButton(icon=os.path.join(os.path.dirname(__file__), "images", "icon16.png"),
                                    cmd="AD",
-                                   func=lambda s=editor: get_definition(editor),
+                                   func=get_definition,
                                    tip="AutoDefine Word (%s)" %
                                        ("no shortcut" if PRIMARY_SHORTCUT == "" else PRIMARY_SHORTCUT),
                                    toggleable=False,
@@ -418,7 +431,7 @@ def setup_buttons(buttons, editor):
                                    disables=False)
     define_button = editor.addButton(icon="",
                                      cmd="D",
-                                     func=lambda s=editor: get_definition(editor, force_definition=True),
+                                     func=get_definition_force_definition,
                                      tip="AutoDefine: Definition only (%s)" %
                                          ("no shortcut" if DEFINE_ONLY_SHORTCUT == "" else DEFINE_ONLY_SHORTCUT),
                                      toggleable=False,
@@ -427,7 +440,7 @@ def setup_buttons(buttons, editor):
                                      disables=False)
     pronounce_button = editor.addButton(icon="",
                                         cmd="P",
-                                        func=lambda s=editor: get_definition(editor, force_pronounce=True),
+                                        func=get_definition_force_pronunciation,
                                         tip="AutoDefine: Pronunciation only (%s)" % ("no shortcut"
                                                                                      if PRONOUNCE_ONLY_SHORTCUT == ""
                                                                                      else PRONOUNCE_ONLY_SHORTCUT),
@@ -437,8 +450,7 @@ def setup_buttons(buttons, editor):
                                         disables=False)
     phonetic_transcription_button = editor.addButton(icon="",
                                                      cmd="ə",
-                                                     func=lambda s=editor:
-                                                     get_definition(editor, force_phonetic_transcription=True),
+                                                     func=get_definition_force_phonetic_transcription,
                                                      tip="AutoDefine: Phonetic Transcription only (%s)" %
                                                          ("no shortcut"
                                                           if PHONETIC_TRANSCRIPTION_ONLY_SHORTCUT == ""
