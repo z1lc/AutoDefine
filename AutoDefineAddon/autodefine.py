@@ -285,7 +285,7 @@ def _get_definition(editor,
                 final_pronounce_index = fields.index(field)
                 break
 
-        for sound_local_filename in reversed(all_sounds):
+        for sound_local_filename in all_sounds:
             insert_into_field(editor, '[sound:' + sound_local_filename + ']', final_pronounce_index)
 
     # Add Phonetic Transcription
