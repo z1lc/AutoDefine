@@ -22,7 +22,6 @@ from urllib.error import URLError
 from xml.etree import ElementTree as ET
 
 from .libs import webbrowser
-from .libs.orderedset import OrderedSet
 
 # --------------------------------- SETTINGS ---------------------------------
 
@@ -275,8 +274,8 @@ def _get_definition(editor,
                 wav_url = "http://media.merriam-webster.com/soundc11/" + mid_url + "/" + raw_wav
                 all_sounds.append(editor.urlToFile(wav_url).strip())
 
-        # we want to make this a non-duplicate set, so that we only get unique sound files.
-        all_sounds = OrderedSet(all_sounds)
+        # We want to make this a non-duplicate list, so that we only get unique sound files.
+        all_sounds = list(dict.fromkeys(all_sounds))
 
         final_pronounce_index = PRONUNCIATION_FIELD
         fields = mw.col.models.fieldNames(editor.note.model())
