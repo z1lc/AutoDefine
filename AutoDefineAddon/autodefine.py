@@ -377,7 +377,7 @@ def _get_definition(editor,
                 to_print = re.sub(':', '', to_print)
                 # erase space between semicolon and previous word, if exists, and strip any extraneous whitespace
                 to_print = to_print.replace(" ; ", "; ").strip()
-                to_print += "<br>"
+                to_print += "\n<br>"
 
                 # add verb/noun/adjective
                 if last_functional_label != definition.tail:
