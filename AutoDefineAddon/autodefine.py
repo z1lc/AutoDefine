@@ -287,7 +287,7 @@ def _get_definition(editor,
         to_print = ""
         for sound_local_filename in all_sounds:
             to_print += f'[sound:{sound_local_filename}]'
-        to_print += "<br>"
+
         insert_into_field(editor, to_print, final_pronounce_index)
 
     # Add Phonetic Transcription
