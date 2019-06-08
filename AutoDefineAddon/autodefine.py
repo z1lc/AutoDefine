@@ -22,7 +22,6 @@ from urllib.error import URLError
 from xml.etree import ElementTree as ET
 
 from .libs import webbrowser
-from .libs.orderedset import OrderedSet
 
 # --------------------------------- SETTINGS ---------------------------------
 
@@ -275,8 +274,8 @@ def _get_definition(editor,
                 wav_url = "http://media.merriam-webster.com/soundc11/" + mid_url + "/" + raw_wav
                 all_sounds.append(editor.urlToFile(wav_url).strip())
 
-        # we want to make this a non-duplicate set, so that we only get unique sound files.
-        all_sounds = OrderedSet(all_sounds)
+        # We want to make this a non-duplicate list, so that we only get unique sound files.
+        all_sounds = list(dict.fromkeys(all_sounds))
 
         final_pronounce_index = PRONUNCIATION_FIELD
         fields = mw.col.models.fieldNames(editor.note.model())
@@ -285,8 +284,11 @@ def _get_definition(editor,
                 final_pronounce_index = fields.index(field)
                 break
 
-        for sound_local_filename in reversed(all_sounds):
-            insert_into_field(editor, '[sound:' + sound_local_filename + ']', final_pronounce_index)
+        to_print = ""
+        for sound_local_filename in all_sounds:
+            to_print += f'[sound:{sound_local_filename}]'
+
+        insert_into_field(editor, to_print, final_pronounce_index)
 
     # Add Phonetic Transcription
     if (not force_definition and not force_pronounce and PHONETIC_TRANSCRIPTION_FIELD > -1) or \
@@ -375,7 +377,7 @@ def _get_definition(editor,
                 to_print = re.sub(':', '', to_print)
                 # erase space between semicolon and previous word, if exists, and strip any extraneous whitespace
                 to_print = to_print.replace(" ; ", "; ").strip()
-                to_print += "<br>\n"
+                to_print += "\n<br>"
 
                 # add verb/noun/adjective
                 if last_functional_label != definition.tail:
