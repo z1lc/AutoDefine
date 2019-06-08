@@ -255,6 +255,8 @@ def _get_definition(editor,
         return
     valid_entries = get_preferred_valid_entries(editor, word)
 
+    insert_queue = {}
+
     # Add Vocal Pronunciation
     if (not force_definition and not force_phonetic_transcription and PRONUNCIATION_FIELD > -1) or force_pronounce:
         # Parse all unique pronunciations, and convert them to URLs as per http://goo.gl/nL0vte
@@ -288,7 +290,7 @@ def _get_definition(editor,
         for sound_local_filename in all_sounds:
             to_print += f'[sound:{sound_local_filename}]'
 
-        insert_into_field(editor, to_print, final_pronounce_index)
+        _add_to_insert_queue(insert_queue, to_print, final_pronounce_index)
 
     # Add Phonetic Transcription
     if (not force_definition and not force_pronounce and PHONETIC_TRANSCRIPTION_FIELD > -1) or \
@@ -303,12 +305,12 @@ def _get_definition(editor,
                 part_of_speech = entry.find("fl").text
                 part_of_speech = _abbreviate_part_of_speech(part_of_speech)
 
-                row = "<b>" + part_of_speech + "</b> \\" + phonetic_transcription + "\\<br>"
+                row = f'<b>{part_of_speech}</b> \\{phonetic_transcription}\\'
                 all_transcriptions.append(row)
 
-        to_print = "".join(all_transcriptions)
+        to_print = "<br>".join(all_transcriptions)
 
-        insert_into_field(editor, to_print, PHONETIC_TRANSCRIPTION_FIELD)
+        _add_to_insert_queue(insert_queue, to_print, PHONETIC_TRANSCRIPTION_FIELD)
 
     # Add Definition
     definition_array = []
@@ -388,12 +390,23 @@ def _get_definition(editor,
         # final cleanup of <sx> tag bs
         to_return = to_return.replace(".</b> ; ", ".</b> ")  # <sx> as first definition after "n. " or "v. "
         to_return = to_return.replace("\n; ", "\n")  # <sx> as first definition after newline
-        insert_into_field(editor, to_return, DEFINITION_FIELD)
+        _add_to_insert_queue(insert_queue, to_return, DEFINITION_FIELD)
+
+    # Insert each queue into the considered field
+    for field_index in insert_queue.keys():
+        insert_into_field(editor, insert_queue[field_index], field_index)
 
     if OPEN_IMAGES_IN_BROWSER:
         webbrowser.open("https://www.google.com/search?q= " + word + "&safe=off&tbm=isch&tbs=isz:lt,islt:xga", 0, False)
 
     _focus_zero_field(editor)
+
+
+def _add_to_insert_queue(insert_queue, to_print, field_index):
+    if field_index not in insert_queue.keys():
+        insert_queue[field_index] = to_print
+    else:
+        insert_queue[field_index] += "<br>" + to_print
 
 
 def _abbreviate_part_of_speech(part_of_speech):
