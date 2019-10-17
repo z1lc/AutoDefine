@@ -431,7 +431,7 @@ def insert_into_field(editor, text, field_id, overwrite=False):
 
 # via https://stackoverflow.com/a/12982689
 def clean_html(raw_html):
-    return re.sub(re.compile('<.*?>'), '', raw_html)
+    return re.sub(re.compile('<.*?>'), '', raw_html).replace("&nbsp;", " ")
 
 
 def setup_buttons(buttons, editor):
