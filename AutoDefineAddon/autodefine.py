@@ -274,7 +274,8 @@ def _get_definition(editor,
                 else:
                     mid_url = raw_wav[:1]
                 wav_url = "http://media.merriam-webster.com/soundc11/" + mid_url + "/" + raw_wav
-                all_sounds.append(editor.urlToFile(wav_url).strip())
+
+                all_sounds.append(editor.urlToLink(wav_url).strip())
 
         # We want to make this a non-duplicate list, so that we only get unique sound files.
         all_sounds = list(dict.fromkeys(all_sounds))
@@ -286,9 +287,7 @@ def _get_definition(editor,
                 final_pronounce_index = fields.index(field)
                 break
 
-        to_print = ""
-        for sound_local_filename in all_sounds:
-            to_print += f'[sound:{sound_local_filename}]'
+        to_print = ''.join(all_sounds)
 
         _add_to_insert_queue(insert_queue, to_print, final_pronounce_index)
 
