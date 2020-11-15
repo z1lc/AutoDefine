@@ -416,7 +416,7 @@ def _abbreviate_part_of_speech(part_of_speech):
 
 
 def insert_into_field(editor, text, field_id, overwrite=False):
-    if len(editor.note.fields) < field_id:
+    if len(editor.note.fields) <= field_id:
         tooltip("AutoDefine: Tried to insert '%s' into user-configured field number %d (0-indexed), but note type only "
                 "has %d fields. Use a different note type with %d or more fields, or change the index in the "
                 "Add-on configuration." % (text, field_id, len(editor.note.fields), field_id + 1), period=10000)
